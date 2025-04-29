@@ -118,21 +118,13 @@ streamlit run app.py
 	•	Automation of pre-bid analysis using AI.
 
 📊 Technologies Used
+	•	🐍 Python 3.11 – Core language powering the backend logic
+	•	🌐 Streamlit – Builds the interactive web UI
+	•	🦙 Ollama – Runs LLMs and embedding models locally
+	•	🧠 LangChain – Manages LLM flows and agent behavior
+	•	🧾 ChromaDB – Stores and retrieves document embeddings
+	•	🔐 python-dotenv – Loads environment variables securely
 
-Tool
-Purpose
-Python 3.11
-Core language
-Streamlit
-UI and interaction layer
-Ollama
-LLM & embedding model runtime
-ChromaDB
-Vector database
-LangChain
-LLM orchestration
-dotenv
-Environment config loader
 
 🤝 Contributing
 
