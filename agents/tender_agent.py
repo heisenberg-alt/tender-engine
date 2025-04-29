@@ -271,21 +271,3 @@ class TenderAgent:
         
         return recommendations
 
-# Set the correct db_path and embedding_dimension
-db_path = '/Users/subhisapple/tender-recommender-ai/data/vector_db/chroma.sqlite3'  # Your ChromaDB path
-embedding_dimension = 768  # Replace with your model's embedding dimension (e.g., for BERT)
-
-# Initialize ChromaDBStore with db_path and embedding_dimension
-vector_store = ChromaDBStore(db_path=db_path, embedding_dimension=embedding_dimension)
-
-# Configuration (add your own configuration here)
-config = {
-    "FIRECRAWL_API_KEY": "YOUR_FIRECRAWL_API_KEY",
-    "OLLAMA_HOST": "http://localhost:3000", 
-    "OLLAMA_MODEL": "gpt-4",
-    "OLLAMA_EMBEDDING_MODEL": "text-embedding-ada-002", 
-    "RAW_TENDERS_DIR": "./raw_tenders"
-}
-
-# Now you can use the TenderAgent class as before
-tender_agent = TenderAgent(vector_store, config)
