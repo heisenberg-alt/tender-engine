@@ -79,8 +79,8 @@ The Tender AI application follows a modern, cloud-native architecture pattern le
 ### 1. Clone and Initialize
 
 ```bash
-git clone https://github.com/heisenberg-alt/bkw-tender-engine.git
-cd bkw-tender-ai
+git clone https://github.com/heisenberg-alt/tender-engine.git
+cd tender-engine
 azd init
 ```
 
@@ -153,7 +153,7 @@ infra/
 ## 📁 Project Structure
 
 ```
-bkw-tender-ai/
+tender-engine/
 ├── app.py                      # Streamlit application entrypoint
 ├── azure.yaml                  # Azure Developer CLI configuration
 ├── Dockerfile                  # Container image definition
@@ -215,10 +215,10 @@ recommendation = gpt4o.analyze_match(company_profile, tender_data)
 
 ```bash
 # Build the container
-docker build -t bkw-tender-ai .
+docker build -t tender-engine .
 
 # Run with environment variables
-docker run -p 8501:8501 --env-file .env bkw-tender-ai
+docker run -p 8501:8501 --env-file .env tender-engine
 ```
 
 ### Run with Python
