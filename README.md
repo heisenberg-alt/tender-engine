@@ -1,4 +1,4 @@
-# 🎯 BKW Tender AI - Azure Production Edition
+# 🎯 Tender AI - Secured by Azure
 
 A production-ready AI-powered tender recommendation system built on Microsoft Azure, designed to match companies with relevant government tenders using advanced vector search and GPT-4 analysis.
 
