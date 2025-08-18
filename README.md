@@ -1,204 +1,280 @@
-# 🎯 Tender Recommender AI - Azure Production Edition
+# 🎯 BKW Tender AI - Azure Production Edition
 
 A production-ready AI-powered tender recommendation system built on Microsoft Azure, designed to match companies with relevant government tenders using advanced vector search and GPT-4 analysis.
 
+## 👥 Authors
+
+- **Sameer Ankalgi** - Lead Developer
+- **Hao Zhang** - Azure Infrastructure Architect  
+- **Naya Giannakopoulou** - AI/ML Engineer
+
 ## 🏗️ Azure Architecture
 
-This application leverages the following Azure services:
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Azure Cloud Platform                     │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────────────┐    ┌─────────────────┐                     │
+│  │ Azure Container │    │   Azure OpenAI  │                     │
+│  │      Apps       │◄──►│   (GPT-4o +     │                     │
+│  │   (Streamlit)   │    │  text-embed-3)  │                     │
+│  └─────────────────┘    └─────────────────┘                     │
+│           │                       │                             │
+│           ▼                       ▼                             │
+│  ┌─────────────────┐    ┌─────────────────┐                     │
+│  │  Azure Cosmos   │    │   EU TED API    │                     │
+│  │ DB (Vector DB)  │    │ (Tender Source) │                     │
+│  └─────────────────┘    └─────────────────┘                     │
+│           │                                                     │
+│           ▼                                                     │
+│  ┌─────────────────────────────────────────┐                   │
+│  │          Support Services               │                   │
+│  │  • Azure Key Vault (Secrets)           │                   │
+│  │  • Azure Container Registry (Images)   │                   │
+│  │  • Application Insights (Monitoring)   │                   │
+│  │  • Azure Monitor (Logging)             │                   │
+│  └─────────────────────────────────────────┘                   │
+└─────────────────────────────────────────────────────────────────┘
+```
 
-- **Azure Cosmos DB**: Vector-enabled NoSQL database for tender and company data
-- **Azure OpenAI**: GPT-4o for intelligent analysis and text-embedding-3-small for vector embeddings
-- **Azure Container Apps**: Serverless container hosting with auto-scaling
-- **Azure Container Registry**: Secure container image storage
-- **Azure Application Insights**: End-to-end observability and monitoring
-- **Azure Key Vault**: Secure secrets management
-- **Azure Monitor**: Centralized logging and alerting
+### Core Azure Services
+
+- **🚀 Azure Container Apps**: Serverless container hosting with auto-scaling
+- **🧠 Azure OpenAI**: GPT-4o for intelligent analysis and text-embedding-3-small for vector embeddings
+- **📊 Azure Cosmos DB**: Vector-enabled NoSQL database for tender and company data with similarity search
+- **🔒 Azure Key Vault**: Secure secrets and API key management
+- **📦 Azure Container Registry**: Secure container image storage and distribution
+- **📈 Application Insights**: End-to-end observability and performance monitoring
+- **📋 Azure Monitor**: Centralized logging, metrics, and alerting
 
 ## 🚀 Features
 
-- **🔍 Smart Tender Discovery**: AI-powered search and indexing of government tenders
-- **🏢 Company Profile Management**: Structured company data with vector embeddings
-- **💡 Intelligent Matching**: Vector similarity search with GPT-4 analysis
-- **📊 Production Monitoring**: Real-time metrics and distributed tracing
-- **🔒 Enterprise Security**: Managed identities and Key Vault integration
-- **⚡ Auto-scaling**: Container Apps with automatic resource optimization
+- **🔍 EU Tender Discovery**: Direct integration with official EU TED API for real-time tender data
+- **🏢 Company Profile Management**: Structured company data with vector embeddings in Cosmos DB
+- **💡 Intelligent Matching**: Vector similarity search powered by Azure OpenAI embeddings
+- **📊 Production Monitoring**: Real-time metrics, distributed tracing, and performance insights
+- **🔒 Enterprise Security**: Managed identities, RBAC, and Key Vault integration
+- **⚡ Auto-scaling**: Container Apps with automatic resource optimization based on demand
+- **🌍 Multi-region Support**: Deployable across Azure regions with geo-redundancy options
 
-## � Prerequisites
+## 📋 Prerequisites
 
-- Azure CLI (`az`) version 2.60+
-- Azure Developer CLI (`azd`) version 1.16+
-- Docker (optional - Azure can build images in the cloud)
-- An Azure subscription with appropriate permissions
+- **Azure CLI** (`az`) version 2.60+
+- **Azure Developer CLI** (`azd`) version 1.16+
+- **Docker** (optional - Azure can build images in the cloud)
+- **Azure subscription** with appropriate permissions for:
+  - Resource group creation
+  - Azure OpenAI service deployment
+  - Cosmos DB provisioning
+  - Container Apps environment setup
 
 ## 🛠️ Quick Start
 
 ### 1. Clone and Initialize
 
 ```bash
-git clone <repository-url>
-cd tender-recommender-ai
+git clone https://github.com/heisenberg-alt/bkw-tender-engine.git
+cd bkw-tender-ai
 azd init
 ```
 
-### 2. Deploy to Azure
+### 2. Configure Environment Variables
+
+Copy the environment template and fill in your Azure credentials:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your Azure configuration:
+
+```bash
+# Azure Configuration
+AZURE_OPENAI_ENDPOINT=https://your-openai-resource.openai.azure.com/
+AZURE_OPENAI_API_KEY=your_azure_openai_key
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME=text-embedding-3-small
+
+# Cosmos DB Configuration  
+COSMOS_DB_ENDPOINT=https://your-cosmos-account.documents.azure.com:443/
+COSMOS_DB_KEY=your_cosmos_db_key
+COSMOS_DB_DATABASE_NAME=tender-recommender
+
+# EU TED API (provided for development)
+EU_TED_API_KEY=your_eu_ted_api_key_here
+```
+
+### 3. Deploy to Azure
 
 ```bash
 azd up
 ```
 
 This command will:
-- Create all Azure resources using Bicep templates
-- Build and deploy the container image
-- Configure environment variables and secrets
-- Set up monitoring and logging
+- 🏗️ Create all Azure resources using Bicep templates
+- 📦 Build and deploy the container image to Azure Container Registry
+- ⚙️ Configure environment variables and secrets in Key Vault
+- 📊 Set up monitoring and logging with Application Insights
+- 🚀 Deploy the application to Azure Container Apps
 
-### 3. Configure Deployment
+### 4. Configure Deployment
 
 During deployment, you'll be prompted for:
-- **Environment Name**: Unique identifier for your deployment
+- **Environment Name**: Unique identifier for your deployment (e.g., `bkw-tender-prod`)
 - **Azure Region**: Choose your preferred region (e.g., `eastus`, `westeurope`)
 - **Azure Subscription**: Select your target subscription
 
 ## 🏗️ Infrastructure as Code
 
-The infrastructure is defined using Bicep templates:
+The infrastructure is defined using Bicep templates in the `infra/` directory:
 
-- `infra/main.bicep`: Subscription-scoped resources and orchestration
-- `infra/resources.bicep`: All Azure resources with proper configuration
-- `infra/main.parameters.json`: Environment-specific parameters
+```
+infra/
+├── main.bicep              # Main orchestration template
+├── resources.bicep         # Azure resources definitions
+└── main.parameters.json    # Environment-specific parameters
+```
 
 ### Key Infrastructure Features
 
-- **Vector Search**: Cosmos DB configured with vector indexing for similarity search
-- **Security**: Managed identities, Key Vault, and RBAC permissions
-- **Observability**: Application Insights with automatic instrumentation
-- **Networking**: Container Apps with CORS and health checks
-- **Scalability**: Auto-scaling based on CPU and memory metrics
-- Embeds and stores data in a vector database for similarity searches.
-- Recommends tenders to companies based on expertise, size, past projects, location, and compliance.
-- Built with **LangChain**, **Ollama**, **ChromaDB**, and **Streamlit**.
-
----
-
-## 🧩 Features
-
-- 🔍 **Tender Extraction**: Uses LLM to parse tender details into a structured format.
-- 🏢 **Company Profile Analysis**: Extracts company expertise, certifications, and projects from documents.
-- 🤝 **Tender Matching**: Calculates match scores between tenders and company profiles.
-- 🧠 **LLM-Powered Reasoning**: Uses prompt engineering to give detailed recommendation justifications.
-- 🗃️ **Vector Storage**: Stores embeddings with `ChromaDB` for retrieval and similarity search.
-- 🖥️ **Streamlit UI**: Clean interface for uploading tenders, company data, and viewing matches.
-
----
+- **🔍 Vector Search**: Cosmos DB configured with vector indexing for similarity search
+- **🔒 Security**: Managed identities, Key Vault integration, and RBAC permissions
+- **📊 Observability**: Application Insights with automatic instrumentation and custom metrics
+- **🌐 Networking**: Container Apps with CORS configuration and health checks
+- **📈 Scalability**: Auto-scaling based on CPU, memory, and HTTP request metrics
+- **🏷️ Resource Tagging**: Consistent tagging for cost management and governance
 
 ## 📁 Project Structure
 
-ender-recommender-ai/
-│
-├── app.py                       # Streamlit application entrypoint
-├── config.py                   # Schemas, prompts, environment configs
+```
+bkw-tender-ai/
+├── app.py                      # Streamlit application entrypoint
+├── azure.yaml                  # Azure Developer CLI configuration
+├── Dockerfile                  # Container image definition
+├── requirements.txt            # Python dependencies (Azure-focused)
+├── .env.example               # Environment variables template
 ├── agents/
-│   └── tender_agent.py         # Core LLM agent for tender extraction
+│   ├── company_agent.py       # Company profile management
+│   └── tender_agent.py        # EU TED API integration & tender processing
+├── llm/
+│   └── azure_recommender_llm.py # Azure OpenAI integration
 ├── utils/
-│   ├── embedding.py            # Embedding + vector store logic
-│   ├── matching.py             # Scoring logic for matching tenders & companies
-│   └── io_utils.py             # File reading, parsing helpers
-├── data/
-│   └── vector_db/              # ChromaDB local storage
-├── .env                        # Environment variables (e.g., API keys)
-└── README.md                   # Project documentation
+│   ├── config.py              # Configuration management
+│   └── tender_crawler.py      # EU TED API crawler with Swiss support
+├── vectorstore/
+│   └── cosmos_vector_store.py # Azure Cosmos DB vector operations
+├── infra/                     # Bicep infrastructure templates
+│   ├── main.bicep
+│   ├── resources.bicep
+│   └── main.parameters.json
+└── data/
+    └── raw_tenders/           # Local tender data storage
+```
 
----
+## 🧠 How It Works
 
-## ⚙️ Setup Instructions
+### 1. EU Tender Data Ingestion
 
-### 1. Clone the Repository
+- **Direct API Integration**: Connects to official EU TED API for real-time tender data
+- **Structured Processing**: Extracts and normalizes tender information (title, description, CPV codes, deadlines)
+- **Vector Embedding**: Uses Azure OpenAI text-embedding-3-small to create semantic embeddings
+- **Cosmos DB Storage**: Stores tender data with vector indexes for similarity search
+
+### 2. Company Profile Management
+
+- **Profile Creation**: Companies input expertise areas, certifications, and capabilities
+- **Semantic Analysis**: Azure OpenAI analyzes company descriptions and generates embeddings
+- **Vector Storage**: Company profiles stored in Cosmos DB with searchable vector representations
+
+### 3. Intelligent Matching
+
+```python
+# Vector similarity search with Azure OpenAI
+embeddings = azure_openai.get_embeddings(company_profile)
+similar_tenders = cosmos_db.vector_search(embeddings, similarity_threshold=0.7)
+
+# GPT-4o analysis for detailed recommendations
+recommendation = gpt4o.analyze_match(company_profile, tender_data)
+```
+
+### 4. Real-time Recommendations
+
+- **Vector Similarity**: Fast similarity search using Cosmos DB vector indexes
+- **AI Analysis**: GPT-4o provides detailed match reasoning and recommendations
+- **Scoring System**: Multi-factor scoring based on expertise, location, company size, and past performance
+
+## 🖥️ Local Development
+
+### Run Locally with Docker
 
 ```bash
-git clone https://github.com/SubhashGovindharaj/tender-recommender-ai.git
-cd tender-recommender-ai
+# Build the container
+docker build -t bkw-tender-ai .
 
-2. Create a Virtual Environment
+# Run with environment variables
+docker run -p 8501:8501 --env-file .env bkw-tender-ai
+```
 
-conda create -n tender-ai python=3.11
-conda activate tender-ai
+### Run with Python
 
-Or using venv:
-
-python3 -m venv venv
-source venv/bin/activate
-
-3. Install Dependencies
-
+```bash
+# Install dependencies
 pip install -r requirements.txt
 
-. Add Environment Variables
-
-Create a .env file:
-
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=llama3
-OLLAMA_EMBEDDING_MODEL=nomic-embed-text
-VECTOR_DB_PATH=./data/vector_db
-VECTOR_DIMENSION=384
-FIRECRAWL_API_KEY=your_api_key_here
-
-🧠 How It Works
-
-1. Tender Analysis
-
-Uses the prompt:
-
-TENDER_EXTRACTION_PROMPT = """
-You are a tender analysis system...
-"""
-
- Extracts structured fields like category, requirements, challenges, etc.
-
-2. Company Profile Extraction
-
-Parses uploaded company documents into schema-defined JSON using:
-
-COMPANY_PROFILE_EXTRACTION_PROMPT = """
-You are a company profile analysis system...
-"""
-
-3. Embedding and Storage
-	•	Embeds both tenders and company profiles using Ollama (nomic-embed-text)
-	•	Stores them in ChromaDB for fast retrieval and similarity matching.
-
-4. Matching & Recommendation
-	•	Compares industry, expertise, location, certifications, and scale.
-	•	Generates a match score and reasoning via:
-
-TENDER_RECOMMENDATION_PROMPT = """
-You are a tender recommendation system...
-"""
-
-🖥️ Run the App
+# Run the Streamlit app
 streamlit run app.py
+```
 
-📌 Example Use Cases
-	•	Government agencies uploading tenders and recommending to potential vendors.
-	•	Companies exploring which tenders best fit their capabilities.
-	•	Automation of pre-bid analysis using AI.
+The application will be available at `http://localhost:8501`
 
-📊 Technologies Used
-	•	🐍 Python 3.11 – Core language powering the backend logic
-	•	🌐 Streamlit – Builds the interactive web UI
-	•	🦙 Ollama – Runs LLMs and embedding models locally
-	•	🧠 LangChain – Manages LLM flows and agent behavior
-	•	🧾 ChromaDB – Stores and retrieves document embeddings
-	•	🔐 python-dotenv – Loads environment variables securely
+## 📊 Monitoring and Observability
 
+### Application Insights Integration
 
-🤝 Contributing
+- **📈 Custom Metrics**: Track tender matches, API response times, and user interactions
+- **🔍 Distributed Tracing**: End-to-end request tracking across Azure services
+- **⚠️ Error Monitoring**: Automatic error detection and alerting
+- **📊 Performance Analytics**: Real-time performance dashboards
 
-We welcome contributions! Please fork the repo, create a new branch, and make your changes via PR.
+### Key Metrics Tracked
 
-⸻
+- Tender processing rate
+- Company profile creation frequency  
+- Vector search performance
+- OpenAI API usage and costs
+- Container resource utilization
 
-🧑‍💻 Author
+## 🔒 Security Features
 
-Subhash Govindaraj
-GitHub • LinkedIn
+- **� Managed Identity**: Passwordless authentication between Azure services
+- **�️ Key Vault Integration**: Secure storage of API keys and connection strings
+- **🛡️ RBAC Permissions**: Least-privilege access control
+- **🔒 Network Security**: Private endpoints and secure communication
+- **📋 Compliance**: GDPR-compliant data handling and retention policies
+
+## 🌍 Deployment Environments
+
+- **Development**: `azd env new dev` - Single-region, cost-optimized
+- **Staging**: `azd env new staging` - Production-like with reduced capacity
+- **Production**: `azd env new prod` - Multi-region, high-availability setup
+
+## 🤝 Contributing
+
+We welcome contributions! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙋‍♂️ Support
+
+For questions or support:
+- 📧 Create an issue in this repository
+- 📝 Check the [ENV_SETUP.md](ENV_SETUP.md) for configuration help
+- 📖 Review the [EU_TED_INTEGRATION_SUMMARY.md](EU_TED_INTEGRATION_SUMMARY.md) for API details
