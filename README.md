@@ -4,11 +4,17 @@ A production-ready AI-powered tender recommendation system built on Microsoft Az
 
 ## 👥 Authors
 
-- **Sameer Ankalgi** - Lead Developer
-- **Hao Zhang** - Azure Infrastructure Architect  
-- **Naya Giannakopoulou** - AI/ML Engineer
+- **Sameer Ankalgi** - AI Engineer - MSFT
+- **Hao Zhang** - AI Engineer - MSFT
+- **Naya Giannakopoulou** - Lead Architect - MSFT_InnoLabs
 
 ## 🏗️ Azure Architecture
+
+![Tender AI Architecture](docs/architecture-diagram.svg)
+
+### Architecture Overview
+
+The Tender AI application follows a modern, cloud-native architecture pattern leveraging Azure's AI and data services for intelligent tender matching:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
