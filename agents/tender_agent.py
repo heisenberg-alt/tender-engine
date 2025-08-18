@@ -2,13 +2,12 @@ import os
 import json
 import uuid
 import logging
-import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 
-from utils.firecrawl_wrapper import FirecrawlWrapper
-from utils.config import TENDER_EXTRACTION_PROMPT
-from vectorstore.chromadb_store import ChromaDBStore
+from utils.tender_crawler import TenderAPIWrapper, EUTenderCrawler
+from vectorstore.cosmos_vector_store import CosmosDBVectorStore
+from llm.azure_recommender_llm import AzureRecommenderLLM
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -17,21 +16,25 @@ logger = logging.getLogger(__name__)
 class TenderAgent:
     """Agent for scraping, processing, and indexing tenders"""
     
-    def __init__(self, vector_store: ChromaDBStore, config: Dict[str, Any]):
+    def __init__(self, vector_store: CosmosDBVectorStore, llm_service: AzureRecommenderLLM, config: Dict[str, Any]):
         """
         Initialize the tender agent
         
         Args:
             vector_store: Vector store for tender embeddings
+            llm_service: Azure OpenAI LLM service
             config: Configuration dictionary
         """
         self.vector_store = vector_store
+        self.llm_service = llm_service
         self.config = config
-        self.firecrawl = FirecrawlWrapper(config["FIRECRAWL_API_KEY"])
-        self.ollama_host = config["OLLAMA_HOST"]
-        self.ollama_model = config["OLLAMA_MODEL"]
-        self.embedding_model = config["OLLAMA_EMBEDDING_MODEL"]
-        self.raw_tenders_dir = config["RAW_TENDERS_DIR"]
+        
+        # Initialize tender crawler with EU TED API
+        eu_api_key = config.get("EU_TED_API_KEY", "")
+        self.tender_crawler = TenderAPIWrapper(eu_api_key=eu_api_key)
+        
+        # Data directories
+        self.raw_tenders_dir = config.get("RAW_TENDERS_DIR", "data/raw_tenders")
         
         # Create raw tenders directory if it doesn't exist
         os.makedirs(self.raw_tenders_dir, exist_ok=True)
@@ -39,207 +42,161 @@ class TenderAgent:
     def search_and_index_tenders(self, 
                                 query: str, 
                                 max_results: int = 10, 
-                                source_type: str = "Government Tenders", 
+                                country_codes: List[str] = None,
+                                cpv_codes: List[str] = None,
                                 days_back: int = 30) -> List[Dict[str, Any]]:
         """
-        Search for government tenders and index them in the vector store
+        Search for EU tenders and index them in the vector store
         
         Args:
             query: Search query for tenders
             max_results: Maximum number of tenders to retrieve
-            source_type: Type of source to search (e.g., Government Tenders)
+            country_codes: List of EU country codes (e.g., ['DE', 'FR', 'IT'])
+            cpv_codes: List of CPV (Common Procurement Vocabulary) codes
             days_back: Number of days to look back for tenders
             
         Returns:
             List of indexed tenders with similarity scores
         """
-        # Search for tenders
-        logger.info(f"Searching for tenders with query: '{query}'")
-        search_results = self.firecrawl.search_tenders(query, max_results, source_type, days_back)
+        # Search for tenders using EU TED API
+        logger.info(f"Searching EU TED for tenders with query: '{query}'")
+        
+        # Calculate date range
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days_back)
+        
+        search_results = self.tender_crawler.search_tenders(
+            query=query,
+            max_results=max_results,
+            sources=["eu_ted"],
+            country_codes=country_codes,
+            cpv_codes=cpv_codes,
+            publication_date_from=start_date.strftime("%Y-%m-%d"),
+            publication_date_to=end_date.strftime("%Y-%m-%d")
+        )
         
         if not search_results:
-            logger.warning("No tenders found in search")
+            logger.warning("No tenders found in EU TED search")
             return []
         
-        logger.info(f"Found {len(search_results)} tender search results")
+        logger.info(f"Found {len(search_results)} tender search results from EU TED")
         
         # Process and index tenders
         indexed_tenders = []
-        for result in search_results:
-            url = result.get("url")
-            if not url:
-                continue
+        for tender_data in search_results:
+            try:
+                # Enhance tender data with AI analysis if needed
+                enhanced_tender = self._enhance_tender_data(tender_data)
                 
-            # Extract tender details
-            tender_data = self._extract_tender_details(result)
-            if not tender_data:
-                continue
+                # Generate a unique ID for the tender if not present
+                tender_id = enhanced_tender.get("id") or f"tender_{uuid.uuid4().hex}"
+                enhanced_tender["id"] = tender_id
                 
-            # Generate a unique ID for the tender
-            tender_id = f"tender_{uuid.uuid4().hex}"
-            
-            # Save raw tender data
-            raw_path = os.path.join(self.raw_tenders_dir, f"{tender_id}.json")
-            with open(raw_path, 'w') as f:
-                json.dump(tender_data, f, indent=2)
-            
-            # Index tender in vector store
-            logger.info(f"Indexing tender: {tender_data.get('title', 'Untitled')}")
-            success = self.vector_store.add_tender(
-                tender_id=tender_id,
-                tender_data=tender_data,
-                ollama_host=self.ollama_host,
-                embedding_model=self.embedding_model
-            )
-            
-            if success:
-                # Add similarity score for display
-                tender_data["id"] = tender_id
-                tender_data["similarity_score"] = 1.0  # Perfect match for newly indexed tenders
-                indexed_tenders.append(tender_data)
+                # Save raw tender data
+                raw_path = os.path.join(self.raw_tenders_dir, f"{tender_id}.json")
+                with open(raw_path, 'w') as f:
+                    json.dump(enhanced_tender, f, indent=2)
+                
+                # Index tender in vector store
+                logger.info(f"Indexing tender: {enhanced_tender.get('title', 'Untitled')}")
+                success = self.vector_store.add_tender(tender_data=enhanced_tender)
+                
+                if success:
+                    # Add similarity score for display
+                    enhanced_tender["similarity_score"] = 1.0  # Perfect match for newly indexed tenders
+                    indexed_tenders.append(enhanced_tender)
+                    
+            except Exception as e:
+                logger.error(f"Error processing tender: {str(e)}")
+                continue
         
         logger.info(f"Successfully indexed {len(indexed_tenders)} tenders")
         return indexed_tenders
     
-    def _extract_tender_details(self, search_result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def _enhance_tender_data(self, tender_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Extract detailed tender information from search result
+        Enhance tender data with additional AI analysis
         
         Args:
-            search_result: Search result from Firecrawl
+            tender_data: Raw tender data from crawler
             
         Returns:
-            Extracted tender details or None if extraction failed
+            Enhanced tender data with AI insights
         """
-        url = search_result.get("url")
-        if not url:
-            return None
+        enhanced = tender_data.copy()
         
-        # Scrape full content from URL
-        scraped_content = self.firecrawl.scrape_tender_details(url)
-        if not scraped_content:
-            # Use search snippet if we can't scrape details
-            return self._create_basic_tender(search_result)
+        # Add timestamp
+        enhanced["indexed_at"] = datetime.now().isoformat()
         
-        # Get the full text content
-        full_text = scraped_content.get("text", "")
-        if not full_text:
-            return self._create_basic_tender(search_result)
+        # Extract and categorize key information
+        description = tender_data.get("description", "")
+        title = tender_data.get("title", "")
         
-        # Use LLM to extract tender information
-        extracted_data = self._extract_with_llm(full_text)
-        if not extracted_data:
-            return self._create_basic_tender(search_result)
+        # Add derived fields
+        enhanced["keywords"] = self._extract_keywords(f"{title} {description}")
+        enhanced["sector"] = self._determine_sector(tender_data)
+        enhanced["complexity_score"] = self._calculate_complexity(tender_data)
         
-        # Combine extracted data with search result data
-        tender_details = {
-            "title": extracted_data.get("title") or search_result.get("title", "Untitled Tender"),
-            "description": extracted_data.get("description") or search_result.get("snippet", ""),
-            "source": search_result.get("domain", "Unknown Source"),
-            "source_url": url,
-            "deadline": extracted_data.get("deadline", ""),
-            "publication_date": search_result.get("date", ""),
-            "value": extracted_data.get("value", ""),
-            "category": extracted_data.get("category", ""),
-            "eligibility": extracted_data.get("eligibility", ""),
-            "contact_details": extracted_data.get("contact_details", ""),
-            "raw_text": full_text[:5000]  # Store the first 5000 chars of raw text
-        }
-        
-        # Download linked documents if available
-        documents = []
-        for link in scraped_content.get("links", []):
-            link_url = link.get("url")
-            link_text = link.get("text", "").lower()
-            
-            # Check if it's likely a tender document
-            if link_url and any(doc_type in link_text for doc_type in ["pdf", "doc", "tender", "application"]):
-                doc_id = f"doc_{uuid.uuid4().hex}"
-                doc_path = os.path.join(self.raw_tenders_dir, f"{doc_id}.pdf")
-                
-                if self.firecrawl.download_tender_documents(link_url, doc_path):
-                    documents.append({
-                        "id": doc_id,
-                        "name": link_text,
-                        "url": link_url,
-                        "local_path": doc_path
-                    })
-        
-        if documents:
-            tender_details["documents"] = documents
-            
-        return tender_details
+        return enhanced
     
-    def _create_basic_tender(self, search_result: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Create basic tender data from search result when detailed extraction fails
-        
-        Args:
-            search_result: Search result from Firecrawl
-            
-        Returns:
-            Basic tender data
-        """
-        return {
-            "title": search_result.get("title", "Untitled Tender"),
-            "description": search_result.get("snippet", ""),
-            "source": search_result.get("domain", "Unknown Source"),
-            "source_url": search_result.get("url", ""),
-            "publication_date": search_result.get("date", ""),
-            "deadline": "",  # Unknown from search results
-            "value": "",     # Unknown from search results
-            "category": ""   # Unknown from search results
-        }
+    def _extract_keywords(self, text: str) -> List[str]:
+        """Extract keywords from tender text"""
+        # Simple keyword extraction - can be enhanced with NLP
+        common_words = {"the", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by"}
+        words = text.lower().split()
+        keywords = [word.strip(".,!?;:()[]{}\"'") for word in words 
+                   if len(word) > 3 and word not in common_words]
+        return list(set(keywords))[:20]  # Return top 20 unique keywords
     
-    def _extract_with_llm(self, text: str) -> Dict[str, Any]:
-        """
-        Extract structured tender information using Ollama LLM
+    def _determine_sector(self, tender_data: Dict[str, Any]) -> str:
+        """Determine the sector based on CPV codes and description"""
+        cpv_codes = tender_data.get("cpv_codes", [])
+        description = tender_data.get("description", "").lower()
         
-        Args:
-            text: Raw text to extract information from
-            
-        Returns:
-            Extracted tender data
-        """
-        try:
-            # Prepare prompt with text
-            prompt = TENDER_EXTRACTION_PROMPT.format(tender_text=text[:10000])  # Limit text size
-            
-            # Call Ollama API
-            response = requests.post(
-                f"{self.ollama_host}/api/generate",
-                json={
-                    "model": self.ollama_model,
-                    "prompt": prompt,
-                    "stream": False
-                }
-            )
-            response.raise_for_status()
-            
-            # Parse response
-            llm_response = response.json().get("response", "")
-            
-            # Extract fields from response
-            data = {}
-            for line in llm_response.splitlines():
-                line = line.strip()
-                if not line or line.startswith("-"):
-                    continue
-                    
-                parts = line.split(":", 1)
-                if len(parts) == 2:
-                    key = parts[0].strip().lower().replace(" ", "_")
-                    value = parts[1].strip()
-                    data[key] = value
-            
-            return data
-            
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error calling Ollama API: {str(e)}")
-            return {}
-        except Exception as e:
-            logger.error(f"Error extracting tender data with LLM: {str(e)}")
-            return {}
+        # Map CPV codes to sectors
+        if any(code.startswith("45") for code in cpv_codes):
+            return "Construction"
+        elif any(code.startswith("48") for code in cpv_codes):
+            return "IT/Software"
+        elif any(code.startswith("33") for code in cpv_codes):
+            return "Healthcare"
+        elif any(code.startswith("31") for code in cpv_codes):
+            return "Energy"
+        elif "energy" in description or "renewable" in description:
+            return "Energy"
+        elif "construction" in description or "building" in description:
+            return "Construction"
+        elif "software" in description or "digital" in description:
+            return "IT/Software"
+        else:
+            return "General"
+    
+    def _calculate_complexity(self, tender_data: Dict[str, Any]) -> float:
+        """Calculate complexity score based on various factors"""
+        score = 0.0
+        
+        # Based on estimated value
+        value = tender_data.get("estimated_value", 0)
+        if value > 10000000:  # >10M
+            score += 0.4
+        elif value > 1000000:  # >1M
+            score += 0.2
+        
+        # Based on description length
+        desc_length = len(tender_data.get("description", ""))
+        if desc_length > 1000:
+            score += 0.3
+        elif desc_length > 500:
+            score += 0.2
+        
+        # Based on number of CPV codes
+        cpv_count = len(tender_data.get("cpv_codes", []))
+        if cpv_count > 3:
+            score += 0.3
+        elif cpv_count > 1:
+            score += 0.1
+        
+        return min(score, 1.0)  # Cap at 1.0
     
     def get_tender_recommendations(self, 
                                  company_profile: Dict[str, Any], 
@@ -258,16 +215,22 @@ class TenderAgent:
         Returns:
             List of recommended tenders with similarity scores
         """
-        # Prepare text for embedding
-        text_to_embed = f"{company_profile.get('name', '')} {company_profile.get('description', '')} " \
-                       f"{' '.join(company_profile.get('expertise', []))}"
-        
-        # Get embeddings
-        embeddings = self.vector_store.get_embeddings(text_to_embed, self.embedding_model)
-        
-        # Find the most similar tenders
-        recommendations = self.vector_store.search_similar_tenders(
-            embeddings, min_score, max_results, filter_expired)
-        
-        return recommendations
+        try:
+            # Prepare text for embedding using Azure OpenAI
+            company_text = f"{company_profile.get('name', '')} {company_profile.get('description', '')} " \
+                          f"{' '.join(company_profile.get('expertise', []))}"
+            
+            # Get embeddings using Azure OpenAI
+            embeddings = self.llm_service.get_embeddings(company_text)
+            
+            # Search for similar tenders in Cosmos DB
+            similar_tenders = self.vector_store.search_similar_tenders(
+                embeddings, min_score, max_results, filter_expired
+            )
+            
+            return similar_tenders
+            
+        except Exception as e:
+            logger.error(f"Error getting tender recommendations: {str(e)}")
+            return []
 

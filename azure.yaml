@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/refs/heads/main/schemas/v1.0/azure.yaml.json
+
+name: tender-recommender-ai
+infra:
+  provider: bicep
+services:
+  tender-recommender-web:
+    project: ./
+    host: containerapp
+    language: python
+    docker:
+      path: Dockerfile
+      context: ./

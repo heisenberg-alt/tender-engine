@@ -45,41 +45,33 @@ def load_config() -> Dict[str, Any]:
     dotenv.load_dotenv()
     
     config = {
-        "OLLAMA_HOST": os.getenv("OLLAMA_HOST", "http://localhost:11434"),
-        "OLLAMA_MODEL": os.getenv("OLLAMA_MODEL", "llama3"),
-        "OLLAMA_EMBEDDING_MODEL": os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text"),
-        "VECTOR_DB_PATH": os.getenv("VECTOR_DB_PATH", "./data/vector_db"),
-        "VECTOR_DIMENSION": int(os.getenv("VECTOR_DIMENSION", "384")),
-        "FIRECRAWL_API_KEY": os.getenv("FIRECRAWL_API_KEY", "")
+        # Azure Cosmos DB Configuration
+        "COSMOS_DB_ENDPOINT": os.getenv("COSMOS_DB_ENDPOINT", ""),
+        "COSMOS_DB_KEY": os.getenv("COSMOS_DB_KEY", ""),
+        "COSMOS_DB_DATABASE_NAME": os.getenv("COSMOS_DB_DATABASE_NAME", "tender-recommender"),
+        
+        # Azure OpenAI Configuration
+        "AZURE_OPENAI_ENDPOINT": os.getenv("AZURE_OPENAI_ENDPOINT", ""),
+        "AZURE_OPENAI_API_KEY": os.getenv("AZURE_OPENAI_API_KEY", ""),
+        "AZURE_OPENAI_DEPLOYMENT_NAME": os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o"),
+        "AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME": os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME", "text-embedding-3-small"),
+        "AZURE_OPENAI_API_VERSION": os.getenv("AZURE_OPENAI_API_VERSION", "2024-08-01-preview"),
+        
+        # Tender API Configuration
+        "EU_TED_API_KEY": os.getenv("EU_TED_API_KEY", ""),
+        "SWISS_TENDER_API_KEY": os.getenv("SWISS_TENDER_API_KEY", ""),
+        
+        # Application Insights
+        "APPLICATIONINSIGHTS_CONNECTION_STRING": os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING", ""),
+        
+        # Application Configuration
+        "LOG_LEVEL": os.getenv("LOG_LEVEL", "INFO"),
+        "RAW_TENDERS_DIR": os.getenv("RAW_TENDERS_DIR", "./data/raw_tenders")
     }
     
     return config
 
 # Prompt templates
-TENDER_EXTRACTION_PROMPT = """
-You are a tender analysis system that extracts and structures information from tender documents.
-Please analyze the following tender data and enrich it with additional insights.
-
-Tender Data:
-{tender_details}
-
-Please provide:
-1. A categorization of this tender (e.g., Construction, IT Services, Healthcare)
-2. Key requirements and qualifications needed
-3. Estimated complexity level (Low, Medium, High)
-4. Potential challenges for bidders
-5. Any specific compliance requirements
-
-Format your response as a JSON object with the following structure:
-{{
-  "category": ["category1", "category2"],
-  "key_requirements": ["requirement1", "requirement2", ...],
-  "complexity_level": "Medium",
-  "potential_challenges": ["challenge1", "challenge2", ...],
-  "compliance_requirements": ["requirement1", "requirement2", ...]
-}}
-"""
-
 COMPANY_PROFILE_EXTRACTION_PROMPT = """
 You are a company profile analysis system. Please extract structured information from the following company document.
 

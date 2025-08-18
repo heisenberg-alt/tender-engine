@@ -5,13 +5,15 @@ streamlit==1.31.0
 pandas==2.1.4
 numpy==1.26.3
 
-# Vector database
-chromadb==0.4.22
+# Azure services
+azure-cosmos==4.5.1
+azure-identity==1.15.0
+azure-keyvault-secrets==4.7.0
+azure-monitor-opentelemetry==1.2.0
+opentelemetry-instrumentation-streamlit==0.1.0
 
-# PDF and document processing
-PyPDF2==3.0.1
-python-docx==1.0.1
-pytesseract==0.3.10
+# Azure OpenAI
+openai==1.12.0
 
 # API requests
 requests==2.31.0
@@ -19,19 +21,8 @@ requests==2.31.0
 # Environment variables
 python-dotenv==1.0.0
 
-# Natural language processing
-sentence-transformers==2.2.2
-
-# Utilities
-tqdm==4.66.1
-uuid==1.30
-
-# Async processing
-asyncio==3.4.3
-aiohttp==3.9.3
-
 # Date handling
 python-dateutil==2.8.2
 
-# Image processing (for OCR)
-pillow==10.2.0
+# Logging and monitoring
+structlog==24.1.0

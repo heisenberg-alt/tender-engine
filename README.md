@@ -1,13 +1,79 @@
-# 🧠 Tender Recommender AI
+# 🎯 Tender Recommender AI - Azure Production Edition
 
-> An intelligent AI-powered system to analyze tenders and company profiles, then recommend relevant opportunities using LLMs, embeddings, and structured matching.
+A production-ready AI-powered tender recommendation system built on Microsoft Azure, designed to match companies with relevant government tenders using advanced vector search and GPT-4 analysis.
 
----
+## 🏗️ Azure Architecture
 
-## 🚀 Overview
+This application leverages the following Azure services:
 
-Tender Recommender AI is an end-to-end system that:
-- Extracts key information from tender documents and company profiles using Large Language Models (LLMs).
+- **Azure Cosmos DB**: Vector-enabled NoSQL database for tender and company data
+- **Azure OpenAI**: GPT-4o for intelligent analysis and text-embedding-3-small for vector embeddings
+- **Azure Container Apps**: Serverless container hosting with auto-scaling
+- **Azure Container Registry**: Secure container image storage
+- **Azure Application Insights**: End-to-end observability and monitoring
+- **Azure Key Vault**: Secure secrets management
+- **Azure Monitor**: Centralized logging and alerting
+
+## 🚀 Features
+
+- **🔍 Smart Tender Discovery**: AI-powered search and indexing of government tenders
+- **🏢 Company Profile Management**: Structured company data with vector embeddings
+- **💡 Intelligent Matching**: Vector similarity search with GPT-4 analysis
+- **📊 Production Monitoring**: Real-time metrics and distributed tracing
+- **🔒 Enterprise Security**: Managed identities and Key Vault integration
+- **⚡ Auto-scaling**: Container Apps with automatic resource optimization
+
+## � Prerequisites
+
+- Azure CLI (`az`) version 2.60+
+- Azure Developer CLI (`azd`) version 1.16+
+- Docker (optional - Azure can build images in the cloud)
+- An Azure subscription with appropriate permissions
+
+## 🛠️ Quick Start
+
+### 1. Clone and Initialize
+
+```bash
+git clone <repository-url>
+cd tender-recommender-ai
+azd init
+```
+
+### 2. Deploy to Azure
+
+```bash
+azd up
+```
+
+This command will:
+- Create all Azure resources using Bicep templates
+- Build and deploy the container image
+- Configure environment variables and secrets
+- Set up monitoring and logging
+
+### 3. Configure Deployment
+
+During deployment, you'll be prompted for:
+- **Environment Name**: Unique identifier for your deployment
+- **Azure Region**: Choose your preferred region (e.g., `eastus`, `westeurope`)
+- **Azure Subscription**: Select your target subscription
+
+## 🏗️ Infrastructure as Code
+
+The infrastructure is defined using Bicep templates:
+
+- `infra/main.bicep`: Subscription-scoped resources and orchestration
+- `infra/resources.bicep`: All Azure resources with proper configuration
+- `infra/main.parameters.json`: Environment-specific parameters
+
+### Key Infrastructure Features
+
+- **Vector Search**: Cosmos DB configured with vector indexing for similarity search
+- **Security**: Managed identities, Key Vault, and RBAC permissions
+- **Observability**: Application Insights with automatic instrumentation
+- **Networking**: Container Apps with CORS and health checks
+- **Scalability**: Auto-scaling based on CPU and memory metrics
 - Embeds and stores data in a vector database for similarity searches.
 - Recommends tenders to companies based on expertise, size, past projects, location, and compliance.
 - Built with **LangChain**, **Ollama**, **ChromaDB**, and **Streamlit**.

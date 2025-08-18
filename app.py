@@ -1,12 +1,83 @@
 import streamlit as st
 import pandas as pd
 import os
+import logging
+from typing import Dict, List, Any
+from datetime import datetime
+from openai import AzureOpenAI
+
+# Import Azure-based components
 from agents.tender_agent import TenderAgent
 from agents.company_agent import CompanyAgent
-from vectorstore.chromadb_store import ChromaDBStore
-from llm.recommender_llm import RecommenderLLM
+from vectorstore.cosmos_vector_store import CosmosDBVectorStore
+from llm.azure_recommender_llm import AzureRecommenderLLM
 from utils.config import load_config
-from datetime import datetime
+
+# Configure logging
+def setup_logging():
+    """Setup logging configuration"""
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=getattr(logging, log_level),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler('app.log')
+        ]
+    )
+
+# Initialize logging
+setup_logging()
+logger = logging.getLogger(__name__)
+
+@st.cache_resource
+def initialize_azure_components():
+    """Initialize Azure components with caching"""
+    try:
+        config = load_config()
+        
+        # Initialize Azure OpenAI client
+        openai_client = AzureOpenAI(
+            api_key=config["AZURE_OPENAI_API_KEY"],
+            api_version=config["AZURE_OPENAI_API_VERSION"],
+            azure_endpoint=config["AZURE_OPENAI_ENDPOINT"]
+        )
+        
+        # Initialize Cosmos DB vector store
+        vector_store = CosmosDBVectorStore(
+            cosmos_endpoint=config["COSMOS_DB_ENDPOINT"],
+            cosmos_key=config["COSMOS_DB_KEY"],
+            database_name=config["COSMOS_DB_DATABASE_NAME"],
+            openai_client=openai_client,
+            embedding_deployment=config["AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"]
+        )
+        
+        # Initialize recommender LLM
+        recommender = AzureRecommenderLLM(
+            vector_store=vector_store,
+            azure_openai_client=openai_client,
+            deployment_name=config["AZURE_OPENAI_DEPLOYMENT_NAME"]
+        )
+        
+        # Initialize agents
+        tender_agent = TenderAgent(vector_store, recommender, config)
+        company_agent = CompanyAgent(vector_store=vector_store)
+        
+        logger.info("Successfully initialized all Azure components")
+        
+        return {
+            'config': config,
+            'vector_store': vector_store,
+            'recommender': recommender,
+            'tender_agent': tender_agent,
+            'company_agent': company_agent,
+            'openai_client': openai_client
+        }
+        
+    except Exception as e:
+        logger.error(f"Error initializing Azure components: {str(e)}")
+        st.error(f"Failed to initialize Azure components: {str(e)}")
+        return None
 
 # Set page config at the very beginning
 st.set_page_config(page_title="Tender Recommender AI", layout="wide")
@@ -68,221 +139,392 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def main():
-    st.title("Tender Recommender AI")
+    st.title("🎯 Tender Recommender AI - Azure Edition")
     
-    # Load configuration
-    config = load_config()
+    # Initialize Azure components
+    components = initialize_azure_components()
+    if not components:
+        st.error("Failed to initialize application. Please check your Azure configuration.")
+        return
     
-    # Initialize components
-    vector_store = ChromaDBStore(config["VECTOR_DB_PATH"], config["VECTOR_DIMENSION"])
+    config = components['config']
+    vector_store = components['vector_store']
+    recommender = components['recommender']
+    tender_agent = components['tender_agent']
+    company_agent = components['company_agent']
     
-    # Fix: Get API key with fallback options
-    api_key = config.get("FIRECRAWL_API_KEY", config.get("API_KEY", ""))
-    
-    # Pass the API key directly to TenderAgent
-    tender_agent = TenderAgent(api_key, vector_store)
-    company_agent = CompanyAgent(vector_store=vector_store)
-    recommender = RecommenderLLM(vector_store, config)
+    # Show configuration status
+    with st.expander("🔧 Azure Configuration Status", expanded=False):
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.write("**Azure Services:**")
+            st.write(f"✅ Cosmos DB: {config['COSMOS_DB_ENDPOINT'][:50]}...")
+            st.write(f"✅ OpenAI: {config['AZURE_OPENAI_ENDPOINT'][:50]}...")
+            st.write(f"✅ GPT Model: {config['AZURE_OPENAI_DEPLOYMENT_NAME']}")
+        
+        with col2:
+            st.write("**Tender APIs:**")
+            eu_ted_status = "✅ Configured" if config.get('EU_TED_API_KEY') else "⚠️ Not configured"
+            swiss_status = "⚠️ Not implemented" if not config.get('SWISS_TENDER_API_KEY') else "✅ Configured"
+            st.write(f"EU TED API: {eu_ted_status}")
+            st.write(f"Swiss API: {swiss_status}")
+            
+        with col3:
+            st.write("**Monitoring:**")
+            ai_status = "✅ Enabled" if config.get('APPLICATIONINSIGHTS_CONNECTION_STRING') else "⚠️ Not configured"
+            st.write(f"App Insights: {ai_status}")
+            st.write(f"Log Level: {config['LOG_LEVEL']}")
     
     # Sidebar for actions
     with st.sidebar:
-        st.header("Actions")
+        st.header("🚀 Actions")
         action = st.radio(
-            "Select Action",
-            ["Available Tenders", "Search New Tenders", "Upload Company Profile", "Get Recommendations"],
-            index=0
+            "Choose an action:",
+            ["🔍 Search & Index Tenders", "🏢 Add Company Profile", "💡 Get Recommendations", "📊 View Data"]
         )
     
-    # Default view: Show all available tenders
-    if action == "Available Tenders":
-        st.header("Available Tenders")
+    if action == "🔍 Search & Index Tenders":
+        st.header("Search and Index EU Tenders")
         
-        # Get all tenders from vector store
-        all_tenders = vector_store.get_all_tenders()
-        
-        if all_tenders:
-            # Create DataFrame for better display
-            tender_list = []
-            for tender in all_tenders:
-                # Convert deadline to datetime for sorting
-                deadline_date = None
-                try:
-                    if tender.get("deadline"):
-                        deadline_date = datetime.fromisoformat(tender["deadline"])
-                except ValueError:
-                    pass
-                
-                tender_list.append({
-                    "ID": tender.get("id", ""),
-                    "Title": tender.get("title", ""),
-                    "Organization": tender.get("organization", ""),
-                    "Location": tender.get("location", ""),
-                    "Deadline": deadline_date,
-                    "Value": f"{tender.get('estimated_value', 'N/A')} {tender.get('currency', '')}",
-                    "Category": ", ".join(tender.get("category", [])) if isinstance(tender.get("category"), list) else tender.get("category", ""),
-                    "Source": tender.get("source", "")
-                })
+        with st.form("tender_search_form"):
+            col1, col2 = st.columns(2)
             
-            # Create DataFrame and sort by deadline
-            tenders_df = pd.DataFrame(tender_list)
-            if not tenders_df.empty and "Deadline" in tenders_df.columns:
-                tenders_df = tenders_df.sort_values(by="Deadline", ascending=True)
-            
-            # Add filter options
-            col1, col2, col3 = st.columns(3)
             with col1:
-                filter_categories = st.multiselect(
-                    "Filter by Category",
-                    options=list(set([cat for tender in tender_list for cat in tender.get("Category", "").split(", ") if cat]))
+                search_query = st.text_input(
+                    "Search Query", 
+                    value="renewable energy infrastructure",
+                    help="Enter keywords to search for relevant tenders in EU TED database"
                 )
+                max_results = st.slider("Maximum Results", 1, 50, 10)
+                days_back = st.slider("Days Back", 7, 90, 30, help="How many days back to search")
+                
+            with col2:
+                # EU Country selection
+                eu_countries = [
+                    "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR",
+                    "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL",
+                    "PL", "PT", "RO", "SK", "SI", "ES", "SE"
+                ]
+                selected_countries = st.multiselect(
+                    "EU Countries (optional)",
+                    options=eu_countries,
+                    help="Select specific EU countries or leave empty for all"
+                )
+                
+                # CPV Code categories
+                cpv_categories = {
+                    "Construction": ["45000000"],
+                    "IT/Software": ["48000000", "72000000"],
+                    "Healthcare": ["33000000"],
+                    "Energy": ["31000000", "09000000"],
+                    "Transport": ["34000000", "60000000"],
+                    "Food/Agriculture": ["15000000", "03000000"],
+                    "Environmental": ["90000000"],
+                    "Education": ["80000000"]
+                }
+                
+                selected_sectors = st.multiselect(
+                    "Sectors (optional)",
+                    options=list(cpv_categories.keys()),
+                    help="Select sectors to filter by CPV codes"
+                )
+                
+                # Convert selected sectors to CPV codes
+                cpv_codes = []
+                for sector in selected_sectors:
+                    cpv_codes.extend(cpv_categories[sector])
+            
+            submit_button = st.form_submit_button("🔍 Search EU TED Tenders")
+            
+            if submit_button and search_query:
+                with st.spinner("Searching EU TED database and indexing tenders..."):
+                    try:
+                        results = tender_agent.search_and_index_tenders(
+                            query=search_query,
+                            max_results=max_results,
+                            country_codes=selected_countries if selected_countries else None,
+                            cpv_codes=cpv_codes if cpv_codes else None,
+                            days_back=days_back
+                        )
+                        
+                        if results:
+                            st.success(f"✅ Successfully indexed {len(results)} tenders from EU TED!")
+                            
+                            # Display results in a nice format
+                            for i, result in enumerate(results, 1):
+                                with st.expander(f"Tender {i}: {result.get('title', 'N/A')}", expanded=False):
+                                    col1, col2 = st.columns([2, 1])
+                                    
+                                    with col1:
+                                        st.write(f"**Description:** {result.get('description', 'N/A')[:300]}...")
+                                        st.write(f"**Organization:** {result.get('organization', 'N/A')}")
+                                        st.write(f"**Source:** {result.get('source', 'N/A')}")
+                                        st.write(f"**Location:** {result.get('location', 'N/A')}")
+                                        if result.get('cpv_codes'):
+                                            st.write(f"**CPV Codes:** {', '.join(result['cpv_codes'][:3])}")
+                                        if result.get('sector'):
+                                            st.write(f"**Sector:** {result['sector']}")
+                                    
+                                    with col2:
+                                        if result.get('estimated_value'):
+                                            currency = result.get('currency', 'EUR')
+                                            st.metric("Estimated Value", f"{result['estimated_value']:,.0f} {currency}")
+                                        if result.get('deadline'):
+                                            st.write(f"**Deadline:** {result['deadline']}")
+                                        if result.get('complexity_score'):
+                                            st.metric("Complexity", f"{result['complexity_score']:.1%}")
+                                        
+                                        # Link to original tender
+                                        if result.get('source_url'):
+                                            st.markdown(f"[📋 View Original]({result['source_url']})")
+                        else:
+                            st.warning("No tenders found for the given query.")
+                            st.info("💡 Try different keywords or expand the date range.")
+                            
+                    except Exception as e:
+                        st.error(f"Error searching tenders: {str(e)}")
+                        logger.error(f"Error in tender search: {str(e)}")
+    
+    elif action == "🏢 Add Company Profile":
+        st.header("Add Company Profile")
+        
+        with st.form("company_profile_form"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                company_name = st.text_input("Company Name", placeholder="e.g., TechCorp Solutions")
+                company_description = st.text_area("Description", placeholder="Brief description of the company...")
+                company_location = st.text_input("Location", placeholder="e.g., San Francisco, CA")
+                company_size = st.selectbox("Company Size", ["Small", "Medium", "Large"])
             
             with col2:
-                filter_locations = st.multiselect(
-                    "Filter by Location",
-                    options=list(set([tender.get("Location", "") for tender in tender_list if tender.get("Location")]))
-                )
-                
-            with col3:
-                show_expired = st.checkbox("Show Expired Tenders", value=False)
+                industries = st.text_area("Industries", placeholder="e.g., Technology, Renewable Energy").split(',')
+                services = st.text_area("Services", placeholder="e.g., Software Development, Consulting").split(',')
+                expertise = st.text_area("Expertise", placeholder="e.g., AI/ML, Cloud Computing").split(',')
             
-            # Apply filters
-            filtered_df = tenders_df.copy()
+            submit_company = st.form_submit_button("➕ Add Company Profile")
             
-            if filter_categories:
-                filtered_df = filtered_df[filtered_df["Category"].apply(lambda x: any(cat in x for cat in filter_categories))]
-                
-            if filter_locations:
-                filtered_df = filtered_df[filtered_df["Location"].isin(filter_locations)]
-                
-            if not show_expired:
-                current_date = datetime.now()
-                filtered_df = filtered_df[filtered_df["Deadline"].apply(lambda x: x > current_date if x is not None else True)]
-            
-            # Display tender list
-            st.dataframe(filtered_df, use_container_width=True)
-            
-            # Display selected tender details
-            if st.session_state.get("selected_tender_id"):
-                selected_tender = next((t for t in all_tenders if t.get("id") == st.session_state.selected_tender_id), None)
-                if selected_tender:
-                    with st.expander("Selected Tender Details", expanded=True):
-                        st.subheader(selected_tender.get("title", "No Title"))
-                        st.write(f"**Organization:** {selected_tender.get('organization', 'N/A')}")
-                        st.write(f"**Deadline:** {selected_tender.get('deadline', 'N/A')}")
-                        st.write(f"**Value:** {selected_tender.get('estimated_value', 'N/A')} {selected_tender.get('currency', '')}")
-                        st.write(f"**Location:** {selected_tender.get('location', 'N/A')}")
-                        st.write(f"**Category:** {', '.join(selected_tender.get('category', []))}")
-                        st.write(f"**Source:** {selected_tender.get('source', 'N/A')}")
-                        st.write(f"**Source URL:** {selected_tender.get('source_url', 'N/A')}")
+            if submit_company and company_name:
+                with st.spinner("Adding company profile..."):
+                    try:
+                        company_data = {
+                            "name": company_name,
+                            "description": company_description,
+                            "industry": [i.strip() for i in industries if i.strip()],
+                            "services": [s.strip() for s in services if s.strip()],
+                            "expertise": [e.strip() for e in expertise if e.strip()],
+                            "location": company_location,
+                            "size": company_size
+                        }
                         
-                        st.subheader("Description")
-                        st.write(selected_tender.get("description", "No description available"))
+                        company_id = company_agent.add_company_profile(company_data)
+                        st.success(f"✅ Company profile added successfully! ID: {company_id}")
                         
-                        if selected_tender.get("attachments"):
-                            st.subheader("Attachments")
-                            for attachment in selected_tender.get("attachments", []):
-                                st.write(f"- [{attachment.get('name', 'Document')}]({attachment.get('url', '#')})")
-            
-            # Allow user to select a tender for more details
-            selected_id = st.selectbox(
-                "Select tender for detailed view",
-                options=[tender.get("id", "") for tender in all_tenders],
-                format_func=lambda x: next((t.get("title", "No Title") for t in all_tenders if t.get("id") == x), "")
-            )
-            
-            if selected_id:
-                st.session_state.selected_tender_id = selected_id
-                st.experimental_rerun()
-                
-        else:
-            st.info("No tenders found in database. Please use 'Search New Tenders' to add tenders.")
-            
-            # Quick search button
-            if st.button("Search for new tenders now"):
-                st.session_state.action = "Search New Tenders"
-                st.experimental_rerun()
+                        # Show the added profile
+                        st.json(company_data)
+                        
+                    except Exception as e:
+                        st.error(f"Error adding company profile: {str(e)}")
+                        logger.error(f"Error adding company: {str(e)}")
     
-    elif action == "Search New Tenders":
-        st.header("Search & Index New Tenders")
+    elif action == "💡 Get Recommendations":
+        st.header("AI-Powered Recommendations")
+        
+        tab1, tab2 = st.tabs(["🏢 Tenders for Company", "🎯 Companies for Tender"])
+        
+        with tab1:
+            st.subheader("Find Tenders for Your Company")
+            
+            # Get available companies
+            companies = vector_store.get_all_companies(limit=50)
+            
+            if companies:
+                company_options = {f"{comp['name']} ({comp['location']})": comp for comp in companies}
+                selected_company_name = st.selectbox("Select Company", list(company_options.keys()))
+                
+                if selected_company_name and st.button("🔍 Find Matching Tenders"):
+                    selected_company = company_options[selected_company_name]
+                    
+                    with st.spinner("Analyzing tenders and generating recommendations..."):
+                        try:
+                            recommendations = recommender.recommend_tenders_for_company(
+                                company_profile=selected_company,
+                                max_recommendations=5
+                            )
+                            
+                            if recommendations:
+                                st.success(f"Found {len(recommendations)} recommended tenders!")
+                                
+                                for i, rec in enumerate(recommendations, 1):
+                                    tender = rec['tender']
+                                    analysis = rec['analysis']
+                                    
+                                    with st.expander(f"🎯 Recommendation {i}: {tender.get('title', 'N/A')}", expanded=i==1):
+                                        # Match score
+                                        match_score = analysis.get('match_score', 0)
+                                        st.metric(
+                                            "Match Score", 
+                                            f"{match_score:.1%}",
+                                            delta=f"Vector Similarity: {rec.get('vector_similarity', 0):.3f}"
+                                        )
+                                        
+                                        # Tender details
+                                        col1, col2 = st.columns([2, 1])
+                                        
+                                        with col1:
+                                            st.write(f"**Organization:** {tender.get('organization', 'N/A')}")
+                                            st.write(f"**Description:** {tender.get('description', 'N/A')[:300]}...")
+                                            st.write(f"**Location:** {tender.get('location', 'N/A')}")
+                                        
+                                        with col2:
+                                            if tender.get('estimated_value'):
+                                                st.metric("Value", f"${tender['estimated_value']:,.0f}")
+                                            st.write(f"**Deadline:** {tender.get('deadline', 'N/A')}")
+                                        
+                                        # AI Analysis
+                                        st.write("**🤖 AI Analysis:**")
+                                        st.info(analysis.get('reasoning', 'No analysis available'))
+                                        
+                                        if analysis.get('key_strengths'):
+                                            st.write("**✅ Key Strengths:**")
+                                            for strength in analysis['key_strengths']:
+                                                st.write(f"• {strength}")
+                                        
+                                        if analysis.get('potential_challenges'):
+                                            st.write("**⚠️ Potential Challenges:**")
+                                            for challenge in analysis['potential_challenges']:
+                                                st.write(f"• {challenge}")
+                                        
+                                        st.write(f"**💭 Recommendation:** {analysis.get('recommendation', 'N/A')}")
+                            else:
+                                st.warning("No suitable tender recommendations found.")
+                                
+                        except Exception as e:
+                            st.error(f"Error generating recommendations: {str(e)}")
+                            logger.error(f"Error in recommendations: {str(e)}")
+            else:
+                st.warning("No companies found. Please add some company profiles first.")
+        
+        with tab2:
+            st.subheader("Find Companies for Tender")
+            
+            # Get available tenders
+            tenders = vector_store.get_all_tenders(limit=50)
+            
+            if tenders:
+                tender_options = {f"{tender['title'][:60]}... ({tender.get('location', 'N/A')})": tender for tender in tenders}
+                selected_tender_name = st.selectbox("Select Tender", list(tender_options.keys()))
+                
+                if selected_tender_name and st.button("🔍 Find Suitable Companies"):
+                    selected_tender = tender_options[selected_tender_name]
+                    
+                    with st.spinner("Analyzing companies and generating recommendations..."):
+                        try:
+                            recommendations = recommender.recommend_companies_for_tender(
+                                tender_data=selected_tender,
+                                max_recommendations=5
+                            )
+                            
+                            if recommendations:
+                                st.success(f"Found {len(recommendations)} recommended companies!")
+                                
+                                for i, rec in enumerate(recommendations, 1):
+                                    company = rec['company']
+                                    analysis = rec['analysis']
+                                    
+                                    with st.expander(f"🏢 Recommendation {i}: {company.get('name', 'N/A')}", expanded=i==1):
+                                        # Match score
+                                        match_score = analysis.get('match_score', 0)
+                                        st.metric(
+                                            "Suitability Score", 
+                                            f"{match_score:.1%}",
+                                            delta=f"Vector Similarity: {rec.get('vector_similarity', 0):.3f}"
+                                        )
+                                        
+                                        # Company details
+                                        col1, col2 = st.columns([2, 1])
+                                        
+                                        with col1:
+                                            st.write(f"**Description:** {company.get('description', 'N/A')}")
+                                            st.write(f"**Industries:** {', '.join(company.get('industry', []))}")
+                                            st.write(f"**Services:** {', '.join(company.get('services', []))}")
+                                            st.write(f"**Location:** {company.get('location', 'N/A')}")
+                                        
+                                        with col2:
+                                            st.write(f"**Size:** {company.get('size', 'N/A')}")
+                                            if company.get('expertise'):
+                                                st.write(f"**Expertise:** {', '.join(company['expertise'][:3])}")
+                                        
+                                        # AI Analysis
+                                        st.write("**🤖 AI Analysis:**")
+                                        st.info(analysis.get('reasoning', 'No analysis available'))
+                                        
+                                        if analysis.get('key_strengths'):
+                                            st.write("**✅ Key Strengths:**")
+                                            for strength in analysis['key_strengths']:
+                                                st.write(f"• {strength}")
+                                        
+                                        if analysis.get('potential_challenges'):
+                                            st.write("**⚠️ Potential Challenges:**")
+                                            for challenge in analysis['potential_challenges']:
+                                                st.write(f"• {challenge}")
+                                        
+                                        st.write(f"**💭 Recommendation:** {analysis.get('recommendation', 'N/A')}")
+                            else:
+                                st.warning("No suitable company recommendations found.")
+                                
+                        except Exception as e:
+                            st.error(f"Error generating recommendations: {str(e)}")
+                            logger.error(f"Error in recommendations: {str(e)}")
+            else:
+                st.warning("No tenders found. Please search and index some tenders first.")
+    
+    elif action == "📊 View Data":
+        st.header("Data Overview")
         
         col1, col2 = st.columns(2)
+        
         with col1:
-            search_query = st.text_input("Search Keywords", "construction tender government")
-            max_results = st.number_input("Maximum Results", min_value=1, max_value=50, value=5)
+            st.subheader("📋 Tenders")
+            tenders = vector_store.get_all_tenders(limit=100)
+            st.metric("Total Tenders", len(tenders))
+            
+            if tenders:
+                # Create DataFrame for display
+                tender_df = pd.DataFrame([
+                    {
+                        'Title': t.get('title', 'N/A')[:50] + '...',
+                        'Organization': t.get('organization', 'N/A'),
+                        'Location': t.get('location', 'N/A'),
+                        'Value': f"${t.get('estimated_value', 0):,.0f}" if t.get('estimated_value') else 'N/A',
+                        'Deadline': t.get('deadline', 'N/A')
+                    }
+                    for t in tenders[:20]  # Show first 20
+                ])
+                st.dataframe(tender_df, use_container_width=True)
         
         with col2:
-            countries = st.multiselect("Countries", ["USA", "UK", "EU", "Canada", "Australia", "Global"])
-            date_range = st.slider("Date Range (days)", min_value=1, max_value=90, value=30)
-        
-        if st.button("Search & Index Tenders"):
-            with st.spinner("Searching for tenders..."):
-                # Convert countries list to proper format for the API
-                country_codes = []
-                if countries:
-                    country_codes = countries
-                
-                results = tender_agent.search_and_store_tenders(
-                    keywords=search_query.split(),
-                    countries=country_codes,
-                    max_results=max_results
-                )
-                
-                if results:
-                    st.success(f"Successfully indexed {results} tenders")
-                    
-                    # Show all tenders after indexing
-                    st.session_state.action = "Available Tenders"
-                    st.experimental_rerun()
-                else:
-                    st.warning("No tenders found matching your criteria")
-    
-    elif action == "Upload Company Profile":
-        st.header("Upload Company Profile")
-        
-        profile_tab, manual_tab = st.tabs(["Upload Profile", "Manual Entry"])
-        
-        with profile_tab:
-            uploaded_file = st.file_uploader("Upload company profile document", type=["pdf", "docx", "txt"])
-            company_name = st.text_input("Company Name")
+            st.subheader("🏢 Companies")
+            companies = vector_store.get_all_companies(limit=100)
+            st.metric("Total Companies", len(companies))
             
-            if uploaded_file and company_name:
-                if st.button("Process Company Profile"):
-                    with st.spinner("Processing company profile..."):
-                        # Save uploaded file temporarily
-                        temp_path = os.path.join("data/temp/", uploaded_file.name)
-                        with open(temp_path, "wb") as f:
-                            f.write(uploaded_file.read())
-                        
-                        # Process company info and upload to the vector store
-                        company_agent.process_company_profile(temp_path, company_name)
-                        st.success("Company profile uploaded and indexed successfully!")
-            else:
-                st.warning("Please upload a file and enter the company name.")
-        
-        with manual_tab:
-            st.markdown("You can manually enter company information here.")
-            manual_company_name = st.text_input("Company Name (Manual)")
-            manual_profile_desc = st.text_area("Company Description")
-            
-            if st.button("Submit Manually"):
-                if manual_company_name and manual_profile_desc:
-                    with st.spinner("Saving company info..."):
-                        company_agent.add_company_profile(manual_company_name, manual_profile_desc)
-                        st.success("Company profile saved manually!")
+            if companies:
+                # Create DataFrame for display
+                company_df = pd.DataFrame([
+                    {
+                        'Name': c.get('name', 'N/A'),
+                        'Industry': ', '.join(c.get('industry', [])[:2]),
+                        'Location': c.get('location', 'N/A'),
+                        'Size': c.get('size', 'N/A')
+                    }
+                    for c in companies[:20]  # Show first 20
+                ])
+                st.dataframe(company_df, use_container_width=True)
     
-    elif action == "Get Recommendations":
-        st.header("Get Tender Recommendations")
-        
-        query = st.text_input("Enter your query or company profile", "")
-        if query:
-            with st.spinner("Getting recommendations..."):
-                recommendations = recommender.get_recommendations(query)
-                
-                if recommendations:
-                    st.success(f"Found {len(recommendations)} recommendations.")
-                    st.write(recommendations)
-                else:
-                    st.warning("No recommendations found.")
+    # Footer
+    st.markdown("---")
+    st.markdown("🚀 **Tender Recommender AI** - Powered by Azure AI Services | Built with Streamlit")
     
 if __name__ == "__main__":
     main()

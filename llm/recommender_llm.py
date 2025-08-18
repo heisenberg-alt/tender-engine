@@ -3,9 +3,9 @@ import requests
 import json
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+from openai import AzureOpenAI
 
-from utils.config import TENDER_RECOMMENDATION_PROMPT
-from vectorstore.chromadb_store import ChromaDBStore
+from vectorstore.cosmos_vector_store import CosmosDBVectorStore
 from agents.company_agent import CompanyAgent
 
 # Configure logging
