@@ -14,6 +14,12 @@
     "azureOpenAiDeploymentName": {
       "value": "gpt-4o"
     },
+    "azureOpenAigpt5MiniDeploymentName": {
+      "value": "gpt-5-mini"
+    },
+    "azureOpenAio4MiniDeploymentName": {
+      "value": "o4-mini"
+    },
     "azureOpenAiEmbeddingDeploymentName": {
       "value": "text-embedding-3-small"
     },

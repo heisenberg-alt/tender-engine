@@ -11,3 +11,34 @@ services:
     docker:
       path: Dockerfile
       context: ./
+
+# Environment variable mappings from Bicep outputs
+environment:
+  variables:
+    AZURE_OPENAI_ENDPOINT:
+      type: output
+      value: AZURE_OPENAI_ENDPOINT
+    AZURE_OPENAI_DEPLOYMENT_NAME:
+      type: output
+      value: AZURE_OPENAI_DEPLOYMENT_NAME
+    AZURE_OPENAI_GPT5MINI_DEPLOYMENT_NAME:
+      type: output
+      value: AZURE_OPENAI_GPT5MINI_DEPLOYMENT_NAME
+    AZURE_OPENAI_o4_MINI_DEPLOYMENT_NAME:
+      type: output
+      value: AZURE_OPENAI_o4_MINI_DEPLOYMENT_NAME
+    AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME:
+      type: output
+      value: AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME
+    AZURE_OPENAI_API_KEY:
+      type: secret
+      value: AZURE_OPENAI_API_KEY
+    AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT:
+      type: output
+      value: AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
+    AZURE_DOCUMENT_INTELLIGENCE_KEY:
+      type: secret
+      value: AZURE_DOCUMENT_INTELLIGENCE_KEY
+    COSMOS_DB_ENDPOINT:
+      type: output
+      value: COSMOS_DB_ENDPOINT
