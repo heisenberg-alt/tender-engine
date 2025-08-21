@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tender-engine"
+version = "0.1.0"
+description = "Tender Engine - AI-powered tool for analyzing tender documents"
+readme = "README.md"
+authors = [
+    {name = "heisenberg-alt"}
+]
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "streamlit",
+    "python-dotenv",
+    "pandas",
+    "numpy",
+    "openai",
+    "azure-ai-documentintelligence",
+    "azure-identity>=1.21.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "black",
+    "isort",
+    "flake8",
+]
+
+[tool.setuptools]
+packages = ["agents", "data", "llm", "utils", "vectorstore"]
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"

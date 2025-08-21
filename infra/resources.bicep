@@ -3,6 +3,8 @@ param environmentName string
 param resourceToken string
 param resourcePrefix string
 param azureOpenAiDeploymentName string
+param azureOpenAigpt5MiniDeploymentName string
+param azureOpenAio4MiniDeploymentName string
 param azureOpenAiEmbeddingDeploymentName string
 param logLevel string
 
@@ -169,6 +171,16 @@ resource tendersContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/co
           }
         ]
       }
+      vectorEmbeddingPolicy: {
+        vectorEmbeddings: [
+          {
+            path: '/embedding'
+            dataType: 'float32'
+            distanceFunction: 'cosine'
+            dimensions: 1536
+          }
+        ]
+      }
     }
   }
 }
@@ -196,6 +208,16 @@ resource companiesContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/
           {
             path: '/embedding'
             type: 'quantizedFlat'
+          }
+        ]
+      }
+      vectorEmbeddingPolicy: {
+        vectorEmbeddings: [
+          {
+            path: '/embedding'
+            dataType: 'float32'
+            distanceFunction: 'cosine'
+            dimensions: 1536
           }
         ]
       }
@@ -228,7 +250,7 @@ resource gptDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10
     model: {
       format: 'OpenAI'
       name: 'gpt-4o'
-      version: '2024-08-06'
+      version: '2024-11-20'
     }
     versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
     raiPolicyName: 'Microsoft.DefaultV2'
@@ -253,12 +275,70 @@ resource embeddingDeployment 'Microsoft.CognitiveServices/accounts/deployments@2
     raiPolicyName: 'Microsoft.DefaultV2'
   }
   sku: {
-    name: 'Standard'
+    name: 'GlobalStandard'
     capacity: 120
   }
   dependsOn: [
     gptDeployment
   ]
+}
+
+// Azure OpenAI Deployment for GPT-5-mini
+resource gpt5MiniDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+  parent: openAi
+  name: azureOpenAigpt5MiniDeploymentName
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: 'gpt-5-mini'
+      version: '2025-08-07'
+    }
+    versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
+    raiPolicyName: 'Microsoft.DefaultV2'
+  }
+  sku: {
+    name: 'GlobalStandard'
+    capacity: 100
+  }
+  dependsOn: [
+    embeddingDeployment
+  ]
+}
+
+// Azure OpenAI Deployment for o4-mini
+resource gpto4MiniDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
+  parent: openAi
+  name: azureOpenAio4MiniDeploymentName
+  properties: {
+    model: {
+      format: 'OpenAI'
+      name: 'o4-mini'
+      version: '2025-04-16'
+    }
+    versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
+    raiPolicyName: 'Microsoft.DefaultV2'
+  }
+  sku: {
+    name: 'GlobalStandard'
+    capacity: 100
+  }
+}
+
+// Azure AI Document Intelligence Service
+resource documentIntelligence 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
+  name: 'az-${resourcePrefix}-docint-${resourceToken}'
+  location: location
+  kind: 'FormRecognizer'
+  sku: {
+    name: 'S0'
+  }
+  properties: {
+    customSubDomainName: 'az-${resourcePrefix}-docint-${resourceToken}'
+    publicNetworkAccess: 'Enabled'
+  }
+  tags: {
+    'azd-env-name': environmentName
+  }
 }
 
 // Container Apps Environment
@@ -308,6 +388,17 @@ resource openAiKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   ]
 }
 
+resource documentIntelligenceKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'AZURE-DOCUMENT-INTELLIGENCE-KEY'
+  properties: {
+    value: documentIntelligence.listKeys().key1
+  }
+  dependsOn: [
+    keyVaultRoleAssignment
+  ]
+}
+
 // Container App
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: 'az-${resourcePrefix}-ca-${resourceToken}'
@@ -351,6 +442,11 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           keyVaultUrl: openAiKeySecret.properties.secretUri
           identity: managedIdentity.id
         }
+        {
+          name: 'azure-document-intelligence-key'
+          keyVaultUrl: documentIntelligenceKeySecret.properties.secretUri
+          identity: managedIdentity.id
+        }
       ]
     }
     template: {
@@ -388,8 +484,24 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: azureOpenAiDeploymentName
             }
             {
+              name: 'AZURE_OPENAI_GPT5MINI_DEPLOYMENT_NAME'
+              value: azureOpenAigpt5MiniDeploymentName
+            }
+            {
+              name: 'AZURE_OPENAI_o4_MINI_DEPLOYMENT_NAME'
+              value: azureOpenAio4MiniDeploymentName
+            }
+            {
               name: 'AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME'
               value: azureOpenAiEmbeddingDeploymentName
+            }
+            {
+              name: 'AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT'
+              value: documentIntelligence.properties.endpoint
+            }
+            {
+              name: 'AZURE_DOCUMENT_INTELLIGENCE_KEY'
+              secretRef: 'azure-document-intelligence-key'
             }
             {
               name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
@@ -419,7 +531,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
     }
   }
   tags: {
-    'azd-service-name': 'tender-recommender-web'
+    'azd-service-name': 'tender-engine-web'
     'azd-env-name': environmentName
   }
   dependsOn: [
@@ -431,5 +543,10 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.properties.loginServer
 output COSMOS_DB_ENDPOINT string = cosmosDbAccount.properties.documentEndpoint
 output AZURE_OPENAI_ENDPOINT string = openAi.properties.endpoint
+@secure()
+output AZURE_OPENAI_API_KEY string = openAi.listKeys().key1
+output AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT string = documentIntelligence.properties.endpoint
+@secure()
+output AZURE_DOCUMENT_INTELLIGENCE_KEY string = documentIntelligence.listKeys().key1
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsights.properties.ConnectionString
 output TENDER_RECOMMENDER_WEB_URI string = 'https://${containerApp.properties.configuration.ingress.fqdn}'

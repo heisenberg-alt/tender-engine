@@ -1,4 +1,7 @@
-streamlit==1.30.0
-python-dotenv==1.0.0
-pandas==2.2.0
-numpy==1.26.3
+streamlit
+python-dotenv
+pandas
+numpy
+openai
+azure-ai-documentintelligence
+azure-identity
