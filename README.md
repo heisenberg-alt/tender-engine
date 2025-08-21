@@ -126,7 +126,7 @@ This command will:
 ### 4. Configure Deployment
 
 During deployment, you'll be prompted for:
-- **Environment Name**: Unique identifier for your deployment (e.g., `bkw-tender-prod`)
+- **Environment Name**: Unique identifier for your deployment (e.g., `tender-prod`)
 - **Azure Region**: Choose your preferred region (e.g., `eastus`, `westeurope`)
 - **Azure Subscription**: Select your target subscription
 
@@ -284,3 +284,4 @@ For questions or support:
 - 📧 Create an issue in this repository
 - 📝 Check the [ENV_SETUP.md](ENV_SETUP.md) for configuration help
 - 📖 Review the [EU_TED_INTEGRATION_SUMMARY.md](EU_TED_INTEGRATION_SUMMARY.md) for API details
+
