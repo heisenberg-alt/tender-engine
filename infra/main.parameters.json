@@ -8,17 +8,14 @@
     "location": {
       "value": "${AZURE_LOCATION}"
     },
-    "resourceGroupName": {
-      "value": "rg-${AZURE_ENV_NAME}"
-    },
     "azureOpenAiDeploymentName": {
       "value": "gpt-4o"
     },
     "azureOpenAigpt5MiniDeploymentName": {
-      "value": "gpt-5-mini"
+      "value": "gpt-4o-mini"
     },
     "azureOpenAio4MiniDeploymentName": {
-      "value": "o4-mini"
+      "value": "gpt-35-turbo"
     },
     "azureOpenAiEmbeddingDeploymentName": {
       "value": "text-embedding-3-small"

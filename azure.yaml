@@ -3,6 +3,7 @@
 name: tender-engine
 infra:
   provider: bicep
+  
 services:
   tender-engine-web:
     project: ./
@@ -12,7 +13,6 @@ services:
       path: Dockerfile
       context: ./
 
-# Environment variable mappings from Bicep outputs
 environment:
   variables:
     AZURE_CONTAINER_REGISTRY_ENDPOINT:
