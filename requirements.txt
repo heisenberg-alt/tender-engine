@@ -1,7 +1,23 @@
-streamlit
-python-dotenv
-pandas
-numpy
-openai
-azure-ai-documentintelligence
-azure-identity
+# Core web framework
+streamlit==1.30.0
+
+# Data processing
+pandas==2.2.0
+numpy==1.26.3
+python-dotenv==1.0.0
+
+# Azure AI and Cognitive Services
+azure-ai-documentintelligence==1.0.0
+azure-identity==1.15.0
+azure-core>=1.30.0
+
+# Azure Cosmos DB
+azure-cosmos==4.5.1
+
+# OpenAI
+openai==1.12.0
+
+# Other dependencies that might be needed
+requests==2.31.0
+python-dateutil==2.8.2
+typing-extensions==4.9.0

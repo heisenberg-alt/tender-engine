@@ -15,6 +15,9 @@ services:
 # Environment variable mappings from Bicep outputs
 environment:
   variables:
+    AZURE_CONTAINER_REGISTRY_ENDPOINT:
+      type: output
+      value: AZURE_CONTAINER_REGISTRY_ENDPOINT
     AZURE_OPENAI_ENDPOINT:
       type: output
       value: AZURE_OPENAI_ENDPOINT

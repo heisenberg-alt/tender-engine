@@ -8,9 +8,15 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Create the main navigation
-st.title("🎯 Tender Recommendation Engine")
-st.markdown("### AI-Powered Tender Analysis & Company Matching")
+# Hide Streamlit's automatic navigation
+st.markdown("""
+<style>
+    .css-1d391kg {display: none}
+    .css-1rs6os {display: none}
+    .css-17ziqus {display: none}
+    [data-testid="stSidebarNav"] {display: none}
+</style>
+""", unsafe_allow_html=True)
 
 # Sidebar navigation
 with st.sidebar:

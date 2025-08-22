@@ -283,15 +283,15 @@ resource embeddingDeployment 'Microsoft.CognitiveServices/accounts/deployments@2
   ]
 }
 
-// Azure OpenAI Deployment for GPT-5-mini
+// Azure OpenAI Deployment for GPT-4o-mini
 resource gpt5MiniDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
   parent: openAi
   name: azureOpenAigpt5MiniDeploymentName
   properties: {
     model: {
       format: 'OpenAI'
-      name: 'gpt-5-mini'
-      version: '2025-08-07'
+      name: 'gpt-4o-mini'
+      version: '2024-07-18'
     }
     versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
     raiPolicyName: 'Microsoft.DefaultV2'
@@ -305,21 +305,21 @@ resource gpt5MiniDeployment 'Microsoft.CognitiveServices/accounts/deployments@20
   ]
 }
 
-// Azure OpenAI Deployment for o4-mini
+// Azure OpenAI Deployment for GPT-35-turbo
 resource gpto4MiniDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = {
   parent: openAi
   name: azureOpenAio4MiniDeploymentName
   properties: {
     model: {
       format: 'OpenAI'
-      name: 'o4-mini'
-      version: '2025-04-16'
+      name: 'gpt-35-turbo'
+      version: '0125'
     }
     versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
     raiPolicyName: 'Microsoft.DefaultV2'
   }
   sku: {
-    name: 'GlobalStandard'
+    name: 'Standard'
     capacity: 100
   }
 }
@@ -543,10 +543,8 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.properties.loginServer
 output COSMOS_DB_ENDPOINT string = cosmosDbAccount.properties.documentEndpoint
 output AZURE_OPENAI_ENDPOINT string = openAi.properties.endpoint
-@secure()
 output AZURE_OPENAI_API_KEY string = openAi.listKeys().key1
 output AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT string = documentIntelligence.properties.endpoint
-@secure()
 output AZURE_DOCUMENT_INTELLIGENCE_KEY string = documentIntelligence.listKeys().key1
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsights.properties.ConnectionString
 output TENDER_RECOMMENDER_WEB_URI string = 'https://${containerApp.properties.configuration.ingress.fqdn}'

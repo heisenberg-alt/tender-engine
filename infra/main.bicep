@@ -16,10 +16,10 @@ param resourceGroupName string = 'rg-${environmentName}'
 param azureOpenAiDeploymentName string = 'gpt-4o'
 
 @description('Azure OpenAI mini deployment name for lighter tasks')
-param azureOpenAigpt5MiniDeploymentName string = 'gpt-5-mini'
+param azureOpenAigpt5MiniDeploymentName string = 'gpt-4o-mini'
 
 @description('Azure OpenAI o4-mini deployment name for reasoning tasks')
-param azureOpenAio4MiniDeploymentName string = 'o4-mini'
+param azureOpenAio4MiniDeploymentName string = 'gpt-35-turbo'
 
 @description('Azure OpenAI embedding deployment name')
 param azureOpenAiEmbeddingDeploymentName string = 'text-embedding-3-small'
@@ -62,10 +62,8 @@ output RESOURCE_GROUP_ID string = resourceGroup.id
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = resources.outputs.AZURE_CONTAINER_REGISTRY_ENDPOINT
 output COSMOS_DB_ENDPOINT string = resources.outputs.COSMOS_DB_ENDPOINT
 output AZURE_OPENAI_ENDPOINT string = resources.outputs.AZURE_OPENAI_ENDPOINT
-@secure()
 output AZURE_OPENAI_API_KEY string = resources.outputs.AZURE_OPENAI_API_KEY
 output AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT string = resources.outputs.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
-@secure()
 output AZURE_DOCUMENT_INTELLIGENCE_KEY string = resources.outputs.AZURE_DOCUMENT_INTELLIGENCE_KEY
 output AZURE_OPENAI_DEPLOYMENT_NAME string = azureOpenAiDeploymentName
 output AZURE_OPENAI_GPT5MINI_DEPLOYMENT_NAME string = azureOpenAigpt5MiniDeploymentName
